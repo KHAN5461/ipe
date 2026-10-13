@@ -27,61 +27,81 @@ if (-not (Test-Path -Path $TargetAppDir -PathType Container)) {
     exit 1
 }
 
+$AvailableDirs = Get-ChildItem -Path $AssetsDir -Directory | Sort-Object { 
+    if ($_.Name -match '^\D*(\d+)') { [int]$matches[1] } else { 999 } 
+}
+
 # 2. Prompt user if question argument was not provided
 if ([string]::IsNullOrWhiteSpace($Question)) {
     Write-Host "==========================================" -ForegroundColor Cyan
     Write-Host "       React Question Switcher (IPE III)  " -ForegroundColor Cyan
     Write-Host "==========================================" -ForegroundColor Cyan
     Write-Host "Available questions in assets:" -ForegroundColor Yellow
-    Get-ChildItem -Path $AssetsDir -Directory | ForEach-Object { Write-Host " - $($_.Name)" }
+    $AvailableDirs | ForEach-Object { Write-Host " - $($_.Name)" }
     Write-Host ""
-    $Question = Read-Host "Enter the question name to run (e.g. 'q1' or '1')"
+    $Question = Read-Host "Enter question name, number, or keyword (e.g. 'q1', '1', 'product')"
 }
 
 # Normalize input (e.g. '1' -> 'q1', 'Q1' -> 'q1')
-$Question = $Question.Trim().ToLower()
-if ($Question -match "^\d+$") {
-    $Question = "q$Question"
+$CleanInput = $Question.Trim().ToLower()
+if ($CleanInput -match "^\d+$") {
+    $CleanInput = "q$CleanInput"
 }
 
-$SourceDir = Join-Path -Path $AssetsDir -ChildPath $Question
-if (-not (Test-Path -Path $SourceDir -PathType Container)) {
-    Write-Host "Error: Question directory '$SourceDir' does not exist." -ForegroundColor Red
-    Write-Host "Available: $( (Get-ChildItem -Path $AssetsDir -Directory).Name -join ', ' )" -ForegroundColor Yellow
+# Find matching directory:
+# 1. Exact match on directory name
+# 2. Prefix match like 'q1-' (avoids matching 'q10-' when searching for 'q1')
+# 3. Substring match
+$MatchedDir = $AvailableDirs | Where-Object { $_.Name.ToLower() -eq $CleanInput } | Select-Object -First 1
+
+if (-not $MatchedDir) {
+    $MatchedDir = $AvailableDirs | Where-Object { $_.Name.ToLower() -like "$CleanInput-*" } | Select-Object -First 1
+}
+
+if (-not $MatchedDir) {
+    $MatchedDir = $AvailableDirs | Where-Object { $_.Name.ToLower() -like "*$CleanInput*" } | Select-Object -First 1
+}
+
+if (-not $MatchedDir) {
+    Write-Host "Error: Could not find any question matching '$Question'." -ForegroundColor Red
+    Write-Host "Available questions:" -ForegroundColor Yellow
+    $AvailableDirs | ForEach-Object { Write-Host " - $($_.Name)" }
     exit 1
 }
 
-Write-Host "Processing question: $Question..." -ForegroundColor Cyan
+$SourceDir = $MatchedDir.FullName
+$QuestionName = $MatchedDir.Name
 
-# 3. Ensure target directories exist
+Write-Host "Processing question: $QuestionName..." -ForegroundColor Cyan
+
+# 3. Clean previous question components in my-app/src and components/
 if (-not (Test-Path -Path $TargetSrcDir)) {
     New-Item -ItemType Directory -Path $TargetSrcDir -Force | Out-Null
-}
-if (-not (Test-Path -Path $TargetCompDir)) {
-    New-Item -ItemType Directory -Path $TargetCompDir -Force | Out-Null
+} else {
+    Get-ChildItem -Path $TargetSrcDir -Filter "*.jsx" | Remove-Item -Force -ErrorAction SilentlyContinue
 }
 
-# 4. Remove stale App files in my-app/src
-$StaleAppJs = Join-Path -Path $TargetSrcDir -ChildPath "App.js"
-$StaleAppJsx = Join-Path -Path $TargetSrcDir -ChildPath "App.jsx"
-if (Test-Path -Path $StaleAppJs) { Remove-Item -Path $StaleAppJs -Force }
-if (Test-Path -Path $StaleAppJsx) { Remove-Item -Path $StaleAppJsx -Force }
+if (Test-Path -Path $TargetCompDir) {
+    Remove-Item -Path $TargetCompDir -Recurse -Force -ErrorAction SilentlyContinue
+}
+New-Item -ItemType Directory -Path $TargetCompDir -Force | Out-Null
 
-# 5. Copy App component
+# 4. Copy App component
 $SourceAppJsx = Join-Path -Path $SourceDir -ChildPath "App.jsx"
 $SourceAppJs = Join-Path -Path $SourceDir -ChildPath "App.js"
+$TargetAppJsx = Join-Path -Path $TargetSrcDir -ChildPath "App.jsx"
 
 if (Test-Path -Path $SourceAppJsx) {
-    Copy-Item -Path $SourceAppJsx -Destination $StaleAppJsx -Force
+    Copy-Item -Path $SourceAppJsx -Destination $TargetAppJsx -Force
     Write-Host "Copied: App.jsx -> my-app/src/App.jsx" -ForegroundColor Green
 } elseif (Test-Path -Path $SourceAppJs) {
-    Copy-Item -Path $SourceAppJs -Destination $StaleAppJs -Force
+    Copy-Item -Path $SourceAppJs -Destination (Join-Path -Path $TargetSrcDir -ChildPath "App.js") -Force
     Write-Host "Copied: App.js -> my-app/src/App.js" -ForegroundColor Green
 } else {
     Write-Host "Warning: No App.jsx or App.js found in $SourceDir" -ForegroundColor Yellow
 }
 
-# 6. Copy other components into my-app/src/ and my-app/src/components/
+# 5. Copy other components into my-app/src/ and my-app/src/components/
 $ComponentFiles = Get-ChildItem -Path $SourceDir -File | Where-Object { $_.Name -ne "App.jsx" -and $_.Name -ne "App.js" }
 foreach ($file in $ComponentFiles) {
     Copy-Item -Path $file.FullName -Destination (Join-Path -Path $TargetSrcDir -ChildPath $file.Name) -Force
@@ -91,7 +111,7 @@ foreach ($file in $ComponentFiles) {
 
 Write-Host ""
 Write-Host "==========================================" -ForegroundColor Green
-Write-Host " Successfully loaded $Question into my-app! " -ForegroundColor Green
+Write-Host " Successfully loaded $QuestionName into my-app! " -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "To run the app manually:" -ForegroundColor Yellow

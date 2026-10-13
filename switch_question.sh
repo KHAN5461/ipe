@@ -40,32 +40,58 @@ if [ -z "$QUESTION" ]; then
     echo -e "\033[0;33mAvailable questions in assets:\033[0m"
     ls -d "$ASSETS_DIR"/q* 2>/dev/null | xargs -n 1 basename
     echo ""
-    read -p "Enter the question name to run (e.g. 'q1' or '1'): " QUESTION
+    read -p "Enter question name, number, or keyword (e.g. 'q1', '1', 'product'): " QUESTION
 fi
 
 # Normalize input (e.g. '1' -> 'q1', 'Q1' -> 'q1')
-QUESTION=$(echo "$QUESTION" | tr '[:upper:]' '[:lower:]' | xargs)
-if [[ "$QUESTION" =~ ^[0-9]+$ ]]; then
-    QUESTION="q$QUESTION"
+CLEAN_INPUT=$(echo "$QUESTION" | tr '[:upper:]' '[:lower:]' | xargs)
+if [[ "$CLEAN_INPUT" =~ ^[0-9]+$ ]]; then
+    CLEAN_INPUT="q$CLEAN_INPUT"
 fi
 
-SOURCE_DIR="$ASSETS_DIR/$QUESTION"
-if [ ! -d "$SOURCE_DIR" ]; then
-    echo -e "\033[0;31mError: Question directory '$SOURCE_DIR' does not exist.\033[0m"
-    echo -e "\033[0;33mAvailable: $(ls -d "$ASSETS_DIR"/q* 2>/dev/null | xargs -n 1 basename | tr '\n' ' ')\033[0m"
+# Find directory: exact match, prefix match (q1-*), or substring match
+MATCHED_DIR=""
+if [ -d "$ASSETS_DIR/$CLEAN_INPUT" ]; then
+    MATCHED_DIR="$ASSETS_DIR/$CLEAN_INPUT"
+else
+    # Check for prefix match like q1-*
+    for d in "$ASSETS_DIR"/$CLEAN_INPUT-*; do
+        if [ -d "$d" ]; then
+            MATCHED_DIR="$d"
+            break
+        fi
+    done
+fi
+
+if [ -z "$MATCHED_DIR" ]; then
+    # Check for substring match
+    for d in "$ASSETS_DIR"/*"$CLEAN_INPUT"*; do
+        if [ -d "$d" ]; then
+            MATCHED_DIR="$d"
+            break
+        fi
+    done
+fi
+
+if [ -z "$MATCHED_DIR" ] || [ ! -d "$MATCHED_DIR" ]; then
+    echo -e "\033[0;31mError: Could not find any question matching '$QUESTION'.\033[0m"
+    echo -e "\033[0;33mAvailable questions:\033[0m"
+    ls -d "$ASSETS_DIR"/q* 2>/dev/null | xargs -n 1 basename
     exit 1
 fi
 
-echo -e "\033[0;36mProcessing question: $QUESTION...\033[0m"
+SOURCE_DIR="$MATCHED_DIR"
+QUESTION_NAME=$(basename "$MATCHED_DIR")
 
-# 3. Ensure target directories exist
+echo -e "\033[0;36mProcessing question: $QUESTION_NAME...\033[0m"
+
+# 3. Clean previous question components
 mkdir -p "$TARGET_SRC_DIR"
+rm -f "$TARGET_SRC_DIR"/*.jsx
+rm -rf "$TARGET_COMP_DIR"
 mkdir -p "$TARGET_COMP_DIR"
 
-# 4. Remove stale App files in my-app/src
-rm -f "$TARGET_SRC_DIR/App.js" "$TARGET_SRC_DIR/App.jsx"
-
-# 5. Copy App component
+# 4. Copy App component
 if [ -f "$SOURCE_DIR/App.jsx" ]; then
     cp -f "$SOURCE_DIR/App.jsx" "$TARGET_SRC_DIR/App.jsx"
     echo -e "\033[0;32mCopied: App.jsx -> my-app/src/App.jsx\033[0m"
@@ -76,7 +102,7 @@ else
     echo -e "\033[0;33mWarning: No App.jsx or App.js found in $SOURCE_DIR\033[0m"
 fi
 
-# 6. Copy other components into src/ and src/components/
+# 5. Copy other components into src/ and src/components/
 for file in "$SOURCE_DIR"/*; do
     fname=$(basename "$file")
     if [ "$fname" != "App.jsx" ] && [ "$fname" != "App.js" ] && [ -f "$file" ]; then
@@ -88,7 +114,7 @@ done
 
 echo ""
 echo -e "\033[0;32m==========================================\033[0m"
-echo -e "\033[0;32m Successfully loaded $QUESTION into my-app! \033[0m"
+echo -e "\033[0;32m Successfully loaded $QUESTION_NAME into my-app! \033[0m"
 echo -e "\033[0;32m==========================================\033[0m"
 echo ""
 echo -e "\033[0;33mTo run the app manually:\033[0m"

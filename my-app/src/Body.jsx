@@ -1,79 +1,70 @@
 import { useState, useEffect } from "react";
-import Destination from "./Destination";
+import Product from "./Product";
 
 function Body() {
-  const [page, setPage] = useState("destinations");
-  const [destinations, setDestinations] = useState([]);
-  const [selectedDest, setSelectedDest] = useState(null);
+  const [page, setPage] = useState("products");
+  const [products, setProducts] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [cart, setCart] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     setLoading(true);
-    fetch("https://dummyjson.com/users?limit=9")
+    fetch("https://dummyjson.com/products?limit=12")
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
         return res.json();
       })
       .then((data) => {
-        const seasons = ["Spring (March - May)", "Autumn (Sept - Nov)", "Winter (Dec - Feb)", "Summer (June - Aug)"];
-        const list = (data.users || []).map((u, i) => ({
-          id: u.id,
-          city: u.address ? u.address.city : "Metropolis",
-          state: u.address ? u.address.state : "Coastal Region",
-          country: u.address ? u.address.country : "International",
-          packageCost: (35000 + i * 8500).toLocaleString(),
-          season: seasons[i % seasons.length],
-          highlights: `Historic architecture, landmark tours, scenic countryside of ${u.address?.city || 'the region'}.`
-        }));
-        setDestinations(list);
+        setProducts(data.products || []);
         setLoading(false);
       })
       .catch((err) => {
-        setError(err.message || "Failed to retrieve destinations from API");
+        setError(err.message || "Failed to load products from API");
         setLoading(false);
       });
   }, []);
 
-  const filtered = destinations.filter((d) =>
-    d.city.toLowerCase().includes(search.toLowerCase()) ||
-    d.state.toLowerCase().includes(search.toLowerCase()) ||
-    d.country.toLowerCase().includes(search.toLowerCase())
+  const filtered = products.filter((p) =>
+    p.title.toLowerCase().includes(search.toLowerCase()) ||
+    p.category.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <main className="container my-4">
       <nav className="navbar navbar-expand navbar-light bg-light rounded p-2 mb-4 border shadow-sm">
-        <span className="navbar-brand fw-bold text-info text-dark mb-0 me-3">✈️ Wanderlust Travel</span>
+        <span className="navbar-brand fw-bold text-primary mb-0 me-3">🛒 ShopSphere</span>
         <div className="navbar-nav gap-2">
-          <button className={`btn btn-sm ${page === "home" ? "btn-info text-dark fw-bold" : "btn-outline-info text-dark"}`} onClick={() => setPage("home")}>Home</button>
-          <button className={`btn btn-sm ${page === "destinations" ? "btn-info text-dark fw-bold" : "btn-outline-info text-dark"}`} onClick={() => setPage("destinations")}>Destinations</button>
-          <button className={`btn btn-sm ${page === "packages" ? "btn-info text-dark fw-bold" : "btn-outline-info text-dark"}`} onClick={() => setPage("packages")}>Packages</button>
+          <button className={`btn btn-sm ${page === "home" ? "btn-primary" : "btn-outline-primary"}`} onClick={() => setPage("home")}>Home</button>
+          <button className={`btn btn-sm ${page === "products" ? "btn-primary" : "btn-outline-primary"}`} onClick={() => setPage("products")}>Products</button>
+          <button className={`btn btn-sm ${page === "cart" ? "btn-primary" : "btn-outline-primary"}`} onClick={() => setPage("cart")}>Cart ({cart.length})</button>
+          <button className={`btn btn-sm ${page === "about" ? "btn-primary" : "btn-outline-primary"}`} onClick={() => setPage("about")}>About</button>
         </div>
       </nav>
 
       {page === "home" && (
         <div className="card shadow-sm p-4 text-center">
-          <h2 className="text-info fw-bold">Travel Destination Explorer</h2>
-          <p className="text-muted mt-2">Discover popular holiday destinations, visiting seasons, and tour packages fetched from REST API.</p>
+          <h2 className="text-primary fw-bold">Online Shopping Portal</h2>
+          <p className="text-muted mt-2">Browse genuine products dynamically retrieved from DummyJSON REST API endpoint.</p>
           <div className="mt-2">
-            <button className="btn btn-info text-dark fw-bold" onClick={() => setPage("destinations")}>Explore Places &rarr;</button>
+            <button className="btn btn-primary" onClick={() => setPage("products")}>Explore Product Catalog &rarr;</button>
           </div>
         </div>
       )}
 
-      {page === "destinations" && (
+      {page === "products" && (
         <div>
           <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <div>
-              <h4 className="fw-bold mb-0">Tour Destinations</h4>
-              <small className="text-muted">Live REST API: <code>https://dummyjson.com/users</code> (Global Locations)</small>
+              <h4 className="fw-bold mb-0">Products Catalog</h4>
+              <small className="text-muted">Live REST API: <code>https://dummyjson.com/products</code></small>
             </div>
             <input
               className="form-control"
               style={{ maxWidth: "260px" }}
-              placeholder="Search destination or country..."
+              placeholder="Search product or category..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -81,8 +72,8 @@ function Body() {
 
           {loading && (
             <div className="text-center py-5">
-              <div className="spinner-border text-info" role="status"></div>
-              <p className="mt-2 text-muted">Retrieving destinations from API...</p>
+              <div className="spinner-border text-primary" role="status"></div>
+              <p className="mt-2 text-muted">Fetching live products via REST API...</p>
             </div>
           )}
 
@@ -90,12 +81,12 @@ function Body() {
 
           {!loading && !error && (
             <div className="row g-3">
-              {filtered.map((dest) => (
-                <div key={dest.id} className="col-md-4">
-                  <Destination
-                    destination={dest}
-                    onSelect={(d) => {
-                      setSelectedDest(d);
+              {filtered.map((item) => (
+                <div key={item.id} className="col-md-4">
+                  <Product
+                    product={item}
+                    onSelect={(p) => {
+                      setSelectedProduct(p);
                       setPage("details");
                     }}
                   />
@@ -106,50 +97,89 @@ function Body() {
         </div>
       )}
 
-      {page === "details" && selectedDest && (
+      {page === "details" && selectedProduct && (
         <div className="card shadow-sm p-4">
           <div className="d-flex justify-content-between mb-3">
-            <span className="badge bg-info text-dark fs-6">{selectedDest.country}</span>
-            <button className="btn btn-outline-secondary btn-sm" onClick={() => setPage("destinations")}>
-              &larr; Back to Destinations
+            <span className="badge bg-secondary fs-6">{selectedProduct.category}</span>
+            <button className="btn btn-outline-secondary btn-sm" onClick={() => setPage("products")}>
+              &larr; Back to Products
             </button>
           </div>
-          <h3 className="fw-bold text-dark">{selectedDest.city}, {selectedDest.state}</h3>
-          <p className="text-muted mb-1"><strong>Best Visiting Season:</strong> {selectedDest.season}</p>
-          <p className="text-primary fw-bold fs-5 mb-2">Estimated Package Cost: ₹{selectedDest.packageCost}</p>
-          <hr />
-          <h5 className="fw-bold text-dark">Travel Itinerary Overview</h5>
-          <p className="text-secondary">{selectedDest.highlights}</p>
-          <div className="d-flex gap-2 mt-4">
-            <button className="btn btn-info text-dark fw-bold" onClick={() => alert(`Package booking initiated for ${selectedDest.city}!`)}>
-              Book Holiday Package
-            </button>
-            <button className="btn btn-outline-secondary" onClick={() => setPage("destinations")}>
-              Back to Places
-            </button>
+          <div className="row g-4 align-items-center">
+            <div className="col-md-4 text-center">
+              <img
+                src={selectedProduct.thumbnail}
+                alt={selectedProduct.title}
+                className="img-fluid rounded border p-2 bg-light"
+                style={{ maxHeight: "250px", objectFit: "contain" }}
+              />
+            </div>
+            <div className="col-md-8">
+              <h3 className="fw-bold text-dark">{selectedProduct.title}</h3>
+              <h4 className="text-primary fw-bold my-2">${selectedProduct.price}</h4>
+              <p className="text-muted">{selectedProduct.description}</p>
+              <ul className="list-group list-group-flush mb-3 small">
+                <li className="list-group-item px-0"><strong>Brand:</strong> {selectedProduct.brand || "Authentic"}</li>
+                <li className="list-group-item px-0"><strong>Rating:</strong> ⭐ {selectedProduct.rating} / 5.0</li>
+                <li className="list-group-item px-0"><strong>Stock Availability:</strong> {selectedProduct.stock} units in stock</li>
+              </ul>
+              <div className="d-flex gap-2">
+                <button
+                  className="btn btn-success"
+                  onClick={() => {
+                    setCart([...cart, selectedProduct]);
+                    alert(`${selectedProduct.title} added to cart!`);
+                  }}
+                >
+                  Add to Cart
+                </button>
+                <button className="btn btn-outline-secondary" onClick={() => setPage("products")}>
+                  Back to Products
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {page === "packages" && (
+      {page === "cart" && (
         <div className="card shadow-sm p-4">
-          <h4 className="fw-bold mb-3">Curated Tour Packages</h4>
-          <div className="row g-3">
-            {[
-              { title: "Coastal Horizon Tour", duration: "5 Days / 4 Nights", cost: "₹45,000", desc: "Beachside accommodation with island hopping tours." },
-              { title: "Metropolitan Heritage Trail", duration: "6 Days / 5 Nights", cost: "₹58,000", desc: "Museum passes, cultural dining, and architectural tours." },
-              { title: "Highland Wilderness Safari", duration: "7 Days / 6 Nights", cost: "₹69,000", desc: "Mountain treks, lake cruises, and scenic nature walks." }
-            ].map((p, i) => (
-              <div key={i} className="col-md-4">
-                <div className="card h-100 p-3 bg-light border">
-                  <h5 className="fw-bold text-dark">{p.title}</h5>
-                  <span className="badge bg-secondary mb-2 align-self-start">{p.duration}</span>
-                  <p className="small text-muted flex-grow-1">{p.desc}</p>
-                  <strong className="text-primary fs-5">{p.cost}</strong>
-                </div>
+          <h4 className="fw-bold mb-3">Your Shopping Cart</h4>
+          {!cart.length ? (
+            <p className="text-muted">Your cart is empty. <button className="btn btn-link btn-sm p-0" onClick={() => setPage("products")}>Browse Products</button></p>
+          ) : (
+            <div>
+              <ul className="list-group mb-3">
+                {cart.map((item, idx) => (
+                  <li key={idx} className="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                      <h6 className="mb-0 fw-bold">{item.title}</h6>
+                      <small className="text-muted">${item.price}</small>
+                    </div>
+                    <button className="btn btn-sm btn-outline-danger" onClick={() => setCart(cart.filter((_, i) => i !== idx))}>
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <div className="d-flex justify-content-between align-items-center border-top pt-3">
+                <h5 className="mb-0 fw-bold">Total: ${cart.reduce((sum, item) => sum + item.price, 0).toFixed(2)}</h5>
+                <button className="btn btn-success" onClick={() => { alert("Order placed successfully!"); setCart([]); setPage("home"); }}>
+                  Checkout Order
+                </button>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {page === "about" && (
+        <div className="card shadow-sm p-4">
+          <h4 className="fw-bold text-dark">About ShopSphere</h4>
+          <p className="text-muted mt-2">
+            Online product catalog developed with live REST API data integration (<code>https://dummyjson.com/products</code>), React Router navigation architecture, dynamic state handling, and loading feedback.
+          </p>
+          <button className="btn btn-outline-primary btn-sm align-self-start" onClick={() => setPage("home")}>Back to Home</button>
         </div>
       )}
     </main>

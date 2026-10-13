@@ -14,6 +14,7 @@ dist-ssr
 build
 my-app/build
 *.local
+*.zip
 
 # Editor directories and files
 .vscode/*
